@@ -1,3 +1,86 @@
+## 🏗️ 1. Статическая Архитектура (Mermaid Graph)
+
+Эта диаграмма показывает компоненты и их основные связи. Мы используем подграфы (`subgraph`) для обозначения границ системы.
+
+```mermaid
+graph LR
+    subgraph System Boundary: Foggy Call
+        A[Android App (Peer-Terminal)]
+        B[Go Server (Signaling Relay)]
+    end
+    
+    C[STUN Server (Public)]
+    D[The Internet]
+    
+    %% Connections
+    A -- 1. WSS (Signaling) --> B
+    B --> A
+    
+    A -- 2. UDP (Binding Request) --> C
+    C --> A
+    
+    A -- 3. P2P Traffic (DTLS/SRTP) --> A
+    
+    %% Context
+    D -- Host, Route --> B
+    D -- Access --> A
+```
+
+-----
+
+## 2\. Динамическая Архитектура (Mermaid Sequence Diagram)
+
+Эта диаграмма последовательности фокусируется на потоке сообщений для установления P2P-звонка.
+
+```mermaid
+sequenceDiagram
+    participant AppA as Android App A (Caller)
+    participant AppB as Android App B (Receiver)
+    participant GoServer as Go Server (WSS Relay)
+    participant STUN as STUN Server
+    
+    Note over AppA, AppB: Phase 1: Registration and Address Discovery
+    
+    AppA->>GoServer: Establish WSS Connection & Register PubKey A
+    AppB->>GoServer: Establish WSS Connection & Register PubKey B
+    
+    AppA->>STUN: UDP Binding Request
+    STUN-->>AppA: Public IP/Port (Candidate A)
+
+    Note over AppA, AppB: Phase 2: Signaling (SDP Exchange)
+
+    AppA->>AppA: Create SDP Offer
+    AppA->>GoServer: JSON: {target: Key B, payload: Offer}
+    GoServer->>AppB: Forward SDP Offer
+    
+    AppB->>AppB: Set Remote Description (Offer)
+    AppB->>AppB: Generate SDP Answer
+
+    AppB->>GoServer: JSON: {target: Key A, payload: Answer}
+    GoServer->>AppA: Forward SDP Answer
+    
+    AppA->>AppA: Set Remote Description (Answer)
+    
+    Note over AppA, AppB: ICE candidates continue exchanging via Go Server
+
+    Note over AppA, AppB: Phase 3: P2P Tunnel and Media Flow
+
+    AppA->>AppB: Establish Direct P2P Tunnel (DTLS/SRTP)
+    
+    AppA-->>AppB: Encrypted Audio/Video (P2P)
+    AppB-->>AppA: Encrypted Audio/Video (P2P)
+    
+    AppA->>GoServer: Close WSS (Unregister)
+    AppB->>GoServer: Close WSS (Unregister)
+```
+
+-----
+
+## 📄 Обновленный ARCHITECTURE.md (Готово для копирования)
+
+Вот полный текст файла `ARCHITECTURE.md` с заменой PlantUML-кода на Mermaid-код.
+
+````markdown
 # 🏗️ Foggy Call Architecture
 
 This document details the static and dynamic structure of the **Foggy Call** system. The architecture is designed to enforce maximum user privacy by minimizing the server's role in the communication path, aligning with our 'traceless' design philosophy.
@@ -14,34 +97,32 @@ This document details the static and dynamic structure of the **Foggy Call** sys
 
 ---
 
-## 2. Static Architecture (Container Diagram)
+## 2. Static Architecture (Mermaid Graph)
 
-This diagram identifies the core components (containers) within the system and their logical responsibilities using the C4 Model notation.
+This diagram identifies the core components (containers) within the system and their logical responsibilities.
 
-```plantuml
-@startuml Architecture_Static_Diagram_Updated
-!include [https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml](https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml)
-
-LAYOUT_WITH_LEGEND()
-
-System_Boundary(C4_Sys, "Foggy Call System (Private P2P Voice/Video)") {
+```mermaid
+graph LR
+    subgraph System Boundary: Foggy Call
+        A[Android App (Peer-Terminal)]
+        B[Go Server (Signaling Relay)]
+    end
     
-    Container(AndroidApp, "Android Mobile Application", "Kotlin / WebRTC Android SDK", "**Peer-Terminal**. Manages key cryptography, signaling, and media streams. Initiates and receives calls.")
+    C[STUN Server (Public)]
+    D[The Internet]
     
-    Container(GoServer, "Signaling Server (Relay)", "Go / WebSocket Server (WSS) / VPS", "Stateless, log-free switchboard. Relays transient SDP Offer/Answer and ICE candidates.")
-}
-
-System_Ext(STUNServer, "STUN Server (Public)", "UDP", "Identifies the client's public IP/port for NAT Traversal.")
-System_Ext(Internet, "The Internet", "TCP/UDP", "Provides routing and connectivity between all nodes.")
-
-Rel(AndroidApp, GoServer, "1. WebSocket Secure (WSS)", "Asynchronous exchange of signaling messages (JSON)")
-Rel(AndroidApp, STUNServer, "2. UDP (STUN)", "Binding Request for external address resolution")
-Rel(AndroidApp, AndroidApp, "3. Direct P2P Traffic", "Encrypted Audio/Video (SRTP/DTLS)")
-
-Rel_U(GoServer, Internet, "Hosting/Connectivity", "WSS Port 443")
-Rel_U(AndroidApp, Internet, "Network Access")
-
-@enduml
+    %% Connections
+    A -- 1. WSS (Signaling) --> B
+    B --> A
+    
+    A -- 2. UDP (Binding Request) --> C
+    C --> A
+    
+    A -- 3. P2P Traffic (DTLS/SRTP) --> A
+    
+    %% Context
+    D -- Host, Route --> B
+    D -- Access --> A
 ````
 
 ### Component Details
@@ -54,74 +135,48 @@ Rel_U(AndroidApp, Internet, "Network Access")
 
 -----
 
-## 3. Dynamic Architecture (Sequence Diagram)
+## 3\. Dynamic Architecture (Mermaid Sequence Diagram)
 
 This diagram illustrates the step-by-step process required for App A to establish a secure P2P connection with App B.
 
-```plantuml
-@startuml VideoCall_Full_Sequence_Simplified_Internal
-title Dynamic Call Flow: Establishing P2P Connection
-
-participant AppA as "Android App A (Caller)"
-participant AppB as "Android App B (Receiver)"
-participant GoServer as "Go Server (WSS)"
-participant STUN as "STUN Server (Public)"
-
-autonumber
-
-group Phase 1: Registration and Discovery (Ready State)
-    note over AppA: AppA is launched
-    AppA ->> GoServer: [async_rqst] Establish WSS Connection
-    GoServer ->> AppA: [async_resp] Connection Established
-
-    AppA ->> GoServer: [async_rqst] Register Public Key A
-    note right of GoServer: Store: Map[Key A] = WSS-Connect A
-
-    note over AppB: AppB is launched (in background Service)
-    AppB ->> GoServer: [async_rqst] Establish WSS Connection
-    GoServer ->> AppB: [async_resp] Connection Established
-
-    AppB ->> GoServer: [async_rqst] Register Public Key B
-    note right of GoServer: Store: Map[Key B] = WSS-Connect B
-
-    note over AppA: Address Discovery (Pre-call)
-    AppA ->> STUN: [async_rqst] Binding Request for Public IP
-    STUN ->> AppA: [async_resp] Public IP and Port (Candidate A)
-end
-
-group Phase 2: Signaling (SDP Exchange)
-    note over AppA: User A presses "Call"
-    AppA -> AppA: Create SDP Offer
+```mermaid
+sequenceDiagram
+    participant AppA as Android App A (Caller)
+    participant AppB as Android App B (Receiver)
+    participant GoServer as Go Server (WSS Relay)
+    participant STUN as STUN Server
     
-    AppA ->> GoServer: [async_rqst] JSON: {target_key: Key B, payload: SDP Offer}
-    note right of GoServer: Relay to Key B
-    GoServer ->> AppB: [async_rqst] Forward SDP Offer
+    Note over AppA, AppB: Phase 1: Registration and Address Discovery
     
-    note over AppB: AppB receives incoming call
-    AppB -> AppB: Set Remote Description (Offer)
-    AppB -> AppB: Generate SDP Answer
+    AppA->>GoServer: Establish WSS Connection & Register PubKey A
+    AppB->>GoServer: Establish WSS Connection & Register PubKey B
     
-    AppB ->> GoServer: [async_rqst] JSON: {target_key: Key A, payload: SDP Answer}
-    GoServer ->> AppA: [async_rqst] Forward SDP Answer
-    
-    AppA -> AppA: Set Remote Description (Answer)
-    note over AppA, AppB: ICE candidates continue exchanging via Go Server
-end
+    AppA->>STUN: UDP Binding Request
+    STUN-->>AppA: Public IP/Port (Candidate A)
 
-group Phase 3: P2P Tunnel and Media Flow
-    note over AppA, AppB: WebRTC completes ICE checks (Success)
-    AppA ->> AppB: [async_rqst] Establish Direct P2P Tunnel (DTLS/SRTP)
-    
-    note over AppA, AppB: Media traffic is now transmitted directly
-    AppA ->> AppB: [async_rqst] Encrypted Audio/Video
-    AppB ->> AppA: [async_resp] Encrypted Audio/Video
-    
-    note over AppA, AppB: Call End
-    AppA ->> GoServer: [async_rqst] Close WSS (Unregister)
-    AppB ->> GoServer: [async_rqst] Close WSS (Unregister)
-end
-@enduml
-```
+    Note over AppA, AppB: Phase 2: Signaling (SDP Exchange)
 
-```
+    AppA->>AppA: Create SDP Offer
+    AppA->>GoServer: JSON: {target: Key B, payload: Offer}
+    GoServer->>AppB: Forward SDP Offer
+    
+    AppB->>AppB: Set Remote Description (Offer)
+    AppB->>AppB: Generate SDP Answer
+
+    AppB->>GoServer: JSON: {target: Key A, payload: Answer}
+    GoServer->>AppA: Forward SDP Answer
+    
+    AppA->>AppA: Set Remote Description (Answer)
+    
+    Note over AppA, AppB: ICE candidates continue exchanging via Go Server
+
+    Note over AppA, AppB: Phase 3: P2P Tunnel and Media Flow
+
+    AppA->>AppB: Establish Direct P2P Tunnel (DTLS/SRTP)
+    
+    AppA-->>AppB: Encrypted Audio/Video (P2P)
+    AppB-->>AppA: Encrypted Audio/Video (P2P)
+    
+    AppA->>GoServer: Close WSS (Unregister)
+    AppB->>GoServer: Close WSS (Unregister)
 ```
