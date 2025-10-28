@@ -18,7 +18,7 @@ This document details the static and dynamic structure of the **Foggy Call** sys
 
 This diagram identifies the core components (containers) within the system and their logical responsibilities using the C4 Model notation.
 
-**[Вставьте сюда сгенерированное изображение статической диаграммы]**
+![Статическая Архитектура Foggy Call](foggy-call-architecture-c4.svg)
 
 ```plantuml
 @startuml Architecture_Static_Diagram_Updated
@@ -57,7 +57,7 @@ Rel_U(AndroidApp, Internet, "Network Access")
 
 This diagram illustrates the step-by-step process required for App A to establish a secure P2P connection with App B.
 
-**[Вставьте сюда сгенерированное изображение диаграммы последовательности]**
+![Динамическая Архитектура Foggy Call](foggy-call-architecture-sequence.svg)
 
 ```plantuml
 @startuml VideoCall_Full_Sequence_Simplified_Internal
