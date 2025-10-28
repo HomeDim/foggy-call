@@ -21,8 +21,8 @@ This diagram identifies the core components (containers) within the system and t
 ```mermaid
 graph LR
     subgraph System Boundary: Foggy Call
-        AppA([Android App (Peer-Terminal)])
-        GoServer([Go Server (Signaling Relay)])
+        AppA(Android App (Peer-Terminal))
+        GoServer(Go Server (Signaling Relay))
     end
     
     STUN[STUN Server (Public)]
@@ -41,13 +41,18 @@ graph LR
     Internet -- Host, Route --> GoServer
     Internet -- Access --> AppA
 ```
------
+| Component | Responsibility | Technology |
+| :--- | :--- | :--- |
+| Android Mobile Application | "Manages the full lifecycle of a call, from key generation and registration to media transmission.  | Must maintain an active WSS connection (Ready State) via an Android Service.","Kotlin, WebRTC Android SDK, Android Keystore" |
+| Go Signaling Server | Acts as a temporary lookup service (Public Key -> WSS Connection).  | Its only task is to route signaling messages between registered peers.,"Go, WebSockets" |
+| STUN Server | Essential for WebRTC to overcome basic NATs and firewalls by discovering the client's public network identity.  | UDP Protocol |
+
+---
 
 ## 3. Dynamic Architecture (Mermaid Sequence Diagram)
 
 This diagram illustrates the step-by-step process required for App A to establish a secure P2P connection with App B.
 
-```mermaid
 sequenceDiagram
     participant AppA as Android App A (Caller)
     participant AppB as Android App B (Receiver)
@@ -87,4 +92,3 @@ sequenceDiagram
     
     AppA->>GoServer: Close WSS (Unregister)
     AppB->>GoServer: Close WSS (Unregister)
-```
